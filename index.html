@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>pix2GD</title>
+  </head>
+  <body>
+  	<canvas id="art" width="500px" height="500px" style="border-style: solid; border-width: 1px;"></canvas>
+	<br>
+	<input id="color" type="color">
+	<button id="clear"> Clear Drawing </button>
+	<button id="convert"> Convert to Geometry Dash </button>
+	<br>
+	<br>
+	<iframe frameBorder="0" width="95%" style="position: absolute; height:30%;"></iframe>
+	<script>
+	var commandExists = require('command-exists')
+	var w = document.querySelector('iframe').contentWindow;
+	var doc = document.querySelector('iframe').contentDocument;
+	var body = doc.body;
+	var Convert = require('ansi-to-html');
+	var convert = new Convert();
+	
+	body.style.background = "black";
+	
+	var text = doc.createElement('code');
+	text.style.color = "white";
+	text.style.width = "100%";
+	text.style.height = "100%";
+	body.appendChild(text);
+	
+	function status(s){
+		text.innerHTML += convert.toHtml(s.replaceAll('\n', '<br>'))+'<br>'
+	}
+	function clearStatus(){
+		text.innerHTML = "";
+	}
+	
+	function runCommand(c, f) {
+		commandExists('spwn', function(err, commandExists) {
+		if (commandExists) {
+		var error = null;
+		var process = require('child_process').spawn(c, {shell: true});
+		var i = setInterval(() => {
+			w.scrollBy(0,500000000)
+		});
+		process.stdout.on('data', function (data) {
+			f(data.toString());
+		});
+		process.stdout.on('error', function (err) {
+			f(err);
+			error = error;
+		});
+
+		process.on('exit', function (code) {
+			status("(exited with code " + code + ")")
+			clearInterval(i);
+			if (code == 0) {
+				alert('Generated! Open your latest level to see your art.')
+			} else {
+				let m = error==null?"using version older than 0.0.7":error
+				alert('Generation did not succeed. Message: '+m+`.
+				TIP: try installing version 0.0.7 or older, either by reinstalling it or using a SPWN version manager (like https://github.com/Unzor/spvm).`)
+			}
+		});
+		} else {
+			alert('ERROR: SPWN not found on system! Install SPWN (specifically 0.0.7 or older) at https://github.com/Spu7Nix/SPWN-language/releases/download/v0.7-beta/spwn-0.0.7-x86_64-win-fix.msi! ')
+		}
+		})
+	}
+
+	let buffer_to_u8 = (buf) => {
+		var a = new Uint8Array(buf.length);
+		for (var i = 0; i < buf.length; i++) a[i] = buf[i];
+		return a
+	}
+	let fs = require('fs');
+	let fetch = require('node-fetch');
+	let { spawnSync } = require('child_process');
+
+	let generate = () => {
+		let img = buffer_to_u8(fs.readFileSync('img.png')).toString();
+		let url = "https://iremberthrice.seven7four4.repl.co/api/img";
+		let data = {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify({data: img})
+		};
+		status('Transforming image to readable data...')
+		fetch(url, data)
+		.then(data => data.text())
+		.then(data => {
+			status('Creating level...')
+			fs.writeFileSync('data.txt', data);
+			runCommand('spwn build translate.spwn --allow readfile', (o) => {
+				status(o);
+			})
+		})
+	}
+	var color = document.querySelector('#color').value
+	var mouseDown = 0;
+	var canvas = document.getElementById('art');
+	
+	var ctx = canvas.getContext('2d')
+	function clear(){
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+	}
+	function transparent(){
+		  ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+		  ctx.fillRect(0, 0, canvas.width, canvas.height);
+	}
+	
+	function drawPixel(x, y, color, sx, sy) {
+		var roundedX = Math.round(x);
+		var roundedY = Math.round(y);
+		ctx.fillStyle = color || '#000';
+		ctx.fillRect(roundedX, roundedY, sx, sy);
+	}
+	document.querySelector('canvas').onmousedown = function() { 
+		mouseDown = 1;
+	}
+	document.querySelector('canvas').onmouseup = function() {
+		mouseDown = 0;
+	}
+
+	document.querySelector('canvas').onmousemove = function(e) { 
+		if (mouseDown == 1) {
+			const x = e.pageX - e.currentTarget.offsetLeft; 
+			const y = e.pageY - e.currentTarget.offsetTop; 
+			drawPixel(x, y, color, 5, 5);
+		}
+	}
+	
+	document.querySelector('canvas').onmouseout = () => mouseDown = 0;
+	
+	function export_(){
+		let confirmed = confirm('This will transform your art into GD objects, which will add objects to your LATEST level. Would you like to continue?');
+		if (confirmed) {
+			clearStatus();
+			status('Writing image to file...')
+			fs.writeFileSync('img.png', Buffer.from(canvas.toDataURL().split(',')[1], 'base64'))
+			generate()
+		}
+	}
+	document.querySelector('#color').onchange = () => {
+		color = document.querySelector('#color').value;
+	}
+	document.querySelector('#clear').onclick = () => {
+		clear();
+	}
+	document.querySelector('#convert').onclick = () => {
+		export_()
+	}
+
+	</script>
+	
+  </body>
+</html>
