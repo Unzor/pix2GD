@@ -4,7 +4,7 @@
 draw pixel art and convert it to a Geometry Dash level using SPWN
 
 # requirements
-- SPWN (0.7 or below, not above)
+- [SPWN](https://github.com/Spu7Nix/SPWN-language) (0.7 or below, not above)
 - Node.js
   - Electron
 
